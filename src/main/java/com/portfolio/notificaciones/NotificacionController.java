@@ -1,10 +1,7 @@
 package com.portfolio.notificaciones;
 
 import java.net.URI;
-import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import jakarta.validation.Valid;
 
@@ -15,38 +12,29 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/notificaciones")
 public class NotificacionController {
 
-    private final ConcurrentMap<UUID, Notificacion> notificaciones =
-            new ConcurrentHashMap<>();
+    private final NotificacionService servicio;
+
+    public NotificacionController(NotificacionService servicio) {
+        this.servicio = servicio;
+    }
 
     @PostMapping
     public ResponseEntity<Notificacion> registrar(
             @Valid @RequestBody SolicitudNotificacion solicitud) {
 
-        UUID id = UUID.randomUUID();
+        Notificacion notificacion = servicio.registrar(solicitud);
 
-        Notificacion notificacion = new Notificacion(
-                id,
-                solicitud.destinatario(),
-                solicitud.mensaje(),
-                "PENDING",
-                Instant.now()
+        URI ubicacion = URI.create(
+                "/api/notificaciones/" + notificacion.id()
         );
-
-        notificaciones.put(id, notificacion);
-
-        URI ubicacion = URI.create("/api/notificaciones/" + id);
 
         return ResponseEntity.created(ubicacion).body(notificacion);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Notificacion> consultar(@PathVariable UUID id) {
-        Notificacion notificacion = notificaciones.get(id);
-
-        if (notificacion == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return ResponseEntity.ok(notificacion);
+        return servicio.consultar(id)
+                .map(notificacion -> ResponseEntity.ok(notificacion))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }
